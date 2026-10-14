@@ -84,6 +84,10 @@ struct ViewportAndScissor {
 
 // config is only used for non-buffered rendering.
 struct DisplayLayoutConfig;
+// Sub-pixel offset, in PSP pixels, added to every vertex position before rasterization.
+// Set per frame by a frontend that accumulates jittered frames (temporal upscaling); zero otherwise.
+extern float g_rasterJitter[2];
+
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
 
 // These are common to all modern APIs and can be easily converted with a lookup table.

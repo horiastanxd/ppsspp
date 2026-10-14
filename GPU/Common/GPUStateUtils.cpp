@@ -517,6 +517,8 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	return REPLACE_BLEND_STANDARD;
 }
 
+float g_rasterJitter[2] = { 0.0f, 0.0f };
+
 // Viewport and scissor really could be treated entirely separately, but the non-buffered case is nicer by doing them "together".
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	// Scissor. The scissor needs to be offset by the framebuffer offset.

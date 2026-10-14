@@ -48,6 +48,7 @@ public:
 	// Called from the render thread from threaded backends.
 	virtual void ThreadStart() {}
 	virtual bool ThreadFrame() { return true; }   // Returns false when it's time to exit the loop.
+	virtual bool ThreadHasWork() { return true; }
 	virtual void ThreadEnd() {}
 
 	// When this is called, the emulation thread has stopped producing frames completely.

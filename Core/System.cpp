@@ -859,7 +859,21 @@ void PSP_Shutdown(bool success) {
 		return;
 	}
 
-	_assert_(g_bootState != BootState::Failed);
+	// A boot the main thread never finished (PSP_InitUpdate has not seen Complete or Failed)
+	// still owns the loader thread. CPU_Init runs there against the memory and kernel state
+	// torn down below, and a std::thread left joinable terminates the process at exit, so
+	// wait for it first.
+	const bool bootUnfinished = g_loadingThread.joinable();
+	if (bootUnfinished) {
+		g_loadingThread.join();
+	}
+
+	if (g_bootState == BootState::Failed) {
+		// The loader thread already ran CPU_Shutdown() on its own failure.
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+		g_bootState = BootState::Off;
+		return;
+	}
 
 	Core_Stop();
 
@@ -867,8 +881,7 @@ void PSP_Shutdown(bool success) {
 		MIPSAnalyst::StoreHashMap();
 	}
 
-	if (g_bootState == BootState::Booting) {
-		// This should only happen during failures.
+	if (bootUnfinished) {
 		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 	}
 

@@ -42,6 +42,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 
@@ -794,8 +795,21 @@ static void check_variables(CoreParameter &coreParam)
    {
       if (!strcmp(var.value, "disabled"))
          g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
+      else if (!strcmp(var.value, "copy_to_texture"))
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::COPY_TO_TEXTURE;
       else
          g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
+   }
+
+   var.key = "ppsspp_lens_flare_occlusion";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "Low"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::LOW_QUALITY;
+      else if (!strcmp(var.value, "Off"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::OFF;
+      else
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::DEFAULT;
    }
 
    var.key = "ppsspp_spline_quality";
@@ -931,6 +945,13 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bReplaceTextures = false;
       else
          g_Config.bReplaceTextures = true;
+   }
+
+   var.key = "ppsspp_texture_dump";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      // Saves every texture the game loads, as PNG, under PSP/TEXTURES/<game>/new for later replacement.
+      g_Config.bSaveNewTextures = !strcmp(var.value, "enabled");
    }
 
    var.key = "ppsspp_enable_wlan";
@@ -1281,6 +1302,11 @@ void retro_init(void)
 
 void retro_deinit(void)
 {
+   // A frontend that skips retro_unload_game would otherwise leave the emulation and loader
+   // threads alive across the core's static destructors.
+   if (PSP_GetBootState() != BootState::Off)
+      retro_unload_game();
+
    g_threadManager.Teardown();
    g_logManager.Shutdown();
    log_cb = NULL;
@@ -1330,6 +1356,14 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
 }
 
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }
+
+// pspREBOOT: shift everything the game draws by a sub-pixel offset (PSP pixels) from the next
+// frame on, so a frontend can accumulate jittered frames into a higher resolution picture.
+extern "C" RETRO_API void pspreboot_set_jitter(float x, float y) {
+   g_rasterJitter[0] = x;
+   g_rasterJitter[1] = y;
+   gstate_c.Dirty(DIRTY_FRAMEBUFFER_DIM);
+}
 
 namespace Libretro {
    bool useEmuThread = false;
@@ -1446,11 +1480,15 @@ namespace Libretro {
 
       emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 
-      // Is this safe?
-      ctx->ThreadFrame(); // Eat 1 frame
-
-      while (emuThreadState != EmuThreadState::PAUSED)
-         sleep_ms(1, "libretro-pause-poll");
+      // The emulation thread only checks the state between frames, and with frames in flight it may
+      // be blocked handing one to this thread. Keep draining its work until it parks; eating a fixed
+      // number of frames deadlocked when a setting change reset the context mid-game.
+      while (emuThreadState != EmuThreadState::PAUSED) {
+         if (ctx->ThreadHasWork())
+            ctx->ThreadFrame();
+         else
+            sleep_ms(1, "libretro-pause-poll");
+      }
    }
 
 } // namespace Libretro
@@ -1554,6 +1592,7 @@ void retro_unload_game(void) {
    }
 
 	PSP_Shutdown(true);
+	g_pendingBoot = false;
 	g_VFS.Clear();
 
 	delete ctx;
@@ -1698,6 +1737,11 @@ void retro_run(void) {
          unserialize_data = NULL;
       }
    }
+
+   // After a failed boot (or after unload) there is no CPU to run: starting the emulation
+   // thread here would dereference the missing JIT.
+   if (!PSP_IsInited())
+      return;
 
    // TODO: This seems dubious.
    if (softwareRenderInitHack) {

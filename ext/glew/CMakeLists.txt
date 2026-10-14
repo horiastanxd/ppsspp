@@ -19,5 +19,11 @@ if(NOT USE_LIBNX)
     set_target_properties(glew PROPERTIES
       EXCLUDE_FROM_ALL ON
     )
+    # pspREBOOT's Linux frontend gives the libretro core an offscreen EGL context, where GLX
+    # lookups find no display; resolve GL through EGL instead.
+    if(LIBRETRO AND UNIX AND NOT APPLE)
+      target_compile_definitions(glew PRIVATE GLEW_EGL)
+      target_link_libraries(glew PUBLIC EGL)
+    endif()
   endif()
 endif()

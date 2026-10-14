@@ -46,6 +46,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 
@@ -403,8 +404,8 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 	}
 	if (dirty & DIRTY_FRAMEBUFFER_DIM) {
 		float xywh[4];
-		xywh[0] = (float)gstate_c.curRTOffsetX;
-		xywh[1] = (float)gstate_c.curRTOffsetY;
+		xywh[0] = (float)gstate_c.curRTOffsetX + g_rasterJitter[0];
+		xywh[1] = (float)gstate_c.curRTOffsetY + g_rasterJitter[1];
 		xywh[2] = (float)(2.0 / gstate_c.curRTWidth);  // intentionally double precision here
 		xywh[3] = (float)(2.0 / gstate_c.curRTHeight);
 		SetFloatUniform4(render_, &u_xywh, xywh);

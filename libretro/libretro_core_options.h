@@ -523,8 +523,28 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "Some games require GPU readbacks, so be careful.",
       NULL,
       "hacks",
-      BOOL_OPTIONS,
+      {
+         { "disabled", "No" },
+         { "enabled", "Skip" },
+         { "copy_to_texture", "Copy to texture" },
+         { NULL, NULL },
+      },
       "disabled"
+   },
+   {
+      "ppsspp_lens_flare_occlusion",
+      "Lens Flare Occlusion",
+      NULL,
+      "Depth rasterization used by some games to hide lens flares behind geometry.",
+      NULL,
+      "hacks",
+      {
+         { "Auto", NULL },
+         { "Low", NULL },
+         { "Off", NULL },
+         { NULL, NULL },
+      },
+      "Auto"
    },
    {
       "ppsspp_lazy_texture_caching",
@@ -704,6 +724,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "Texture Replacement",
       NULL,
       NULL,
+      NULL,
+      "video",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_texture_dump",
+      "Save New Textures",
+      NULL,
+      "Write every texture the game loads as PNG under PSP/TEXTURES/<game>/new, for building a replacement pack.",
       NULL,
       "video",
       BOOL_OPTIONS,

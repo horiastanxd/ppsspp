@@ -22,6 +22,7 @@ public:
 
 	void ThreadStart() override { renderManager_->ThreadStart(draw_); }
 	bool ThreadFrame() override { return renderManager_->ThreadFrame(); }
+	bool ThreadHasWork() override { return renderManager_->ThreadHasWork(); }
 	void ThreadEnd() override { renderManager_->ThreadEnd(); }
 
    // Call from emu thread
